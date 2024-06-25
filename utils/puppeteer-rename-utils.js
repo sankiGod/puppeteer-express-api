@@ -46,7 +46,7 @@ const navigateAndEditRenameKWG = async (page, url, newName, isHierarchyEnabled, 
   // Wait for a while to let the page update after saving
   await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Check if the new name was successfully saved
+  // Check if the new name was successfully saved.
   let boxHeaderValue;
   if (hierarchy.toUpperCase() === 'T') {
     boxHeaderValue = await page.evaluate(() => {

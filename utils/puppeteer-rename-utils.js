@@ -38,13 +38,14 @@ const navigateAndEditRenameKWG = async (page, url, newName, isHierarchyEnabled, 
     console.log(`Waiting for save button selector for keyword group ID: ${kgId}`);
     await page.waitForSelector(saveButtonSelector, { timeout: 5000 });
     await page.click(saveButtonSelector);
+    await page.waitForNavigation();
   } catch (error) {
     console.error(`No element found for selector: ${saveButtonSelector} for keyword group ID: ${kgId}:`, error);
     throw new Error(`No element found for selector: ${saveButtonSelector}`);
   }
 
   // Wait for a while to let the page update after saving
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // await new Promise(resolve => setTimeout(resolve, 2000));
 
   // Check if the new name was successfully saved.
   let boxHeaderValue;

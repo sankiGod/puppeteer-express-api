@@ -44,9 +44,6 @@ const navigateAndEditRenameKWG = async (page, url, newName, isHierarchyEnabled, 
     throw new Error(`No element found for selector: ${saveButtonSelector}`);
   }
 
-  // Wait for a while to let the page update after saving
-  // await new Promise(resolve => setTimeout(resolve, 2000));
-
   // Check if the new name was successfully saved.
   let boxHeaderValue;
   if (hierarchy.toUpperCase() === 'T') {

@@ -8,15 +8,23 @@ const { navigateAndEditRenameKWG } = require('../utils/puppeteer-rename-utils');
 const MAX_RETRIES = 3;
 
 module.exports = async (req, res) => {
+  const logger = req.logger;
+
+  logger.info('Received request to rename keyword group.');
   console.log('Received request to rename keyword group.');
-  console.log('Request body:', req.body);
-  console.log('Uploaded file:', req.file);
+  logger.info(`Request body: ${JSON.stringify(req.body)}`);
+  console.log(`Request body: ${JSON.stringify(req.body)}`);
+  logger.info(`Uploaded file: ${req.file.originalname}`);
+  console.log(`Uploaded file: ${req.file.originalname}`);
+
   const { username, password, accountID, hierarchy } = req.body;
   const csvFileName = req.file.originalname;
   const csvFilePath = req.file.path;
 
   // Check if the file is a CSV file
   if (path.extname(csvFileName).toLowerCase() !== '.csv') {
+    logger.error('The uploaded file is not a CSV file.');
+    console.log('The uploaded file is not a CSV file.');
     return res.status(400).send('The uploaded file is not a CSV file.');
   }
 
@@ -25,6 +33,7 @@ module.exports = async (req, res) => {
 
   // If the file is not UTF-8 encoded, return a 400 response
   if (originalEncoding !== 'UTF-8') {
+    logger.error('Uploaded file is not UTF-8 encoded.');
     console.log('Uploaded file is not UTF-8 encoded.');
     return res.status(400).send('Please provide a UTF-8 encoded file.');
   }
@@ -58,7 +67,7 @@ module.exports = async (req, res) => {
           const newName = row[Object.keys(row)[2]];
 
           if (newName.trim().length !== newName.length) {
-            console.log(`Please review this keyword group name and remove any trailing spaces: ${newName} (Keyword Group ID: ${kgId})`);
+            logger.warn(`Please review this keyword group name and remove any trailing spaces: ${newName} (Keyword Group ID: ${kgId})`);
             failedGroups.push({ kgId, reason: 'Trailing spaces in the name' });
             continue;
           }
@@ -69,24 +78,26 @@ module.exports = async (req, res) => {
               if (hierarchy.toUpperCase() === 'F') {
                 await page.goto(`${baseUrl}/admin/edit_account_details/${accountID}`, { waitUntil: 'networkidle2' });
                 const newUrl = `${baseUrl}/setup/keyword_management_edit_keyword_group/${kgId}`;
-                await navigateAndEditRenameKWG(page, newUrl, newName, false, kgId, hierarchy);
+                await navigateAndEditRenameKWG(page, newUrl, newName, false, kgId, hierarchy, logger);
               } else {
                 await page.goto(`${baseUrl}/admin/edit_account_details/${accountID}`, { waitUntil: 'networkidle2' });
                 const newUrl = `${baseUrl}/setup/keyword_groups_new_management/?param={"kg":${kgId}}`;
-                await navigateAndEditRenameKWG(page, newUrl, newName, true, kgId, hierarchy);
+                await navigateAndEditRenameKWG(page, newUrl, newName, true, kgId, hierarchy, logger);
               }
               success = true;
               break;
             } catch (error) {
-              console.error(`Attempt ${attempt + 1} failed for keyword group ID: ${kgId}`, error);
+              logger.error(`Attempt ${attempt + 1} failed for keyword group ID: ${kgId}`, error);
+              console.log(`Attempt ${attempt + 1} failed for keyword group ID: ${kgId}`, error);
               if (attempt === MAX_RETRIES - 1) {
-                console.error(`Failed to process keyword group ID: ${kgId} after ${MAX_RETRIES} attempts. Possible Cause: Wrong Account ID or Incorrect Hierarchy given.`);
+                logger.error(`Failed to process keyword group ID: ${kgId} after ${MAX_RETRIES} attempts. Possible Cause: Wrong Account ID or Incorrect Hierarchy given.`);
                 failedGroups.push({ kgId, reason: error.message });
               }
             }
           }
 
           if (success) {
+            logger.info(`Processed keyword group ID: ${kgId} with new name: ${newName}`);
             console.log(`Processed keyword group ID: ${kgId} with new name: ${newName}`);
             successfulGroups.push({ kgId, newName });
           }
@@ -99,9 +110,14 @@ module.exports = async (req, res) => {
         };
 
         res.json(responseMessage);
+        const completionMessage = `Keyword group rename process completed.`;
+        logger.info(completionMessage);
+        console.log(completionMessage); // Log to console
+
 
       } catch (error) {
-        console.error('An error occurred:', error);
+        logger.error('An error occurred:', error);
+        console.log('An error occurred:', error);
         res.status(500).send('An error occurred while processing the request.');
       } finally {
         await browser.close();

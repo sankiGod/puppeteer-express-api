@@ -8,15 +8,23 @@ const { navigateAndEditRenamePgGrp } = require('../utils/puppeteer-rename-utils'
 const MAX_RETRIES = 3;
 
 module.exports = async (req, res) => {
+  const logger = req.logger;
+
+  logger.info('Received request to rename page group.');
   console.log('Received request to rename page group.');
-  console.log('Request body:', req.body);
-  console.log('Uploaded file:', req.file);
+  logger.info(`Request body: ${JSON.stringify(req.body)}`);
+  console.log(`Request body: ${JSON.stringify(req.body)}`);
+  logger.info(`Uploaded file: ${req.file.originalname}`);
+  console.log(`Uploaded file: ${req.file.originalname}`);
+
   const { username, password, accountID } = req.body;
   const csvFileName = req.file.originalname;
   const csvFilePath = req.file.path;
 
   // Check if the file is a CSV file
   if (path.extname(csvFileName).toLowerCase() !== '.csv') {
+    logger.error('The uploaded file is not a CSV file.');
+    console.log('The uploaded file is not a CSV file.');
     return res.status(400).send('The uploaded file is not a CSV file.');
   }
 
@@ -25,6 +33,7 @@ module.exports = async (req, res) => {
 
   // If the file is not UTF-8 encoded, return a 400 response
   if (originalEncoding !== 'UTF-8') {
+    logger.error('Uploaded file is not UTF-8 encoded.');
     console.log('Uploaded file is not UTF-8 encoded.');
     return res.status(400).send('Please provide a UTF-8 encoded file.');
   }
@@ -45,7 +54,7 @@ module.exports = async (req, res) => {
         await page.type('#UserPassword', password);
 
         await Promise.all([
-          page.waitForNavigation(),
+          page.waitForNavigation({ waitUntil: 'networkidle2' }),
           page.click('#login_submit')
         ]);
 
@@ -64,7 +73,7 @@ module.exports = async (req, res) => {
 
           // Check for trailing spaces in the newName
           if (newName.trim().length !== newName.length) {
-            console.log(`Please review this page group name and remove any trailing spaces: ${newName} (Page Group ID: ${PageGrpID})`);
+            logger.warn(`Please review this page group name and remove any trailing spaces: ${newName} (Page Group ID: ${PageGrpID})`);
             failedGroups.push({ PageGrpID, reason: 'Trailing spaces in the name' });
             continue;
           }
@@ -75,19 +84,21 @@ module.exports = async (req, res) => {
               const paramValue = JSON.stringify({ pt: PageGrpID });
               const encodedParamValue = encodeURIComponent(paramValue);
               const newUrl = `${baseUrl}/setup/create_page_group/?param=${encodedParamValue}`;
-              await navigateAndEditRenamePgGrp(page, newUrl, newName, PageGrpID);
+              await navigateAndEditRenamePgGrp(page, newUrl, newName, PageGrpID, logger);
               success = true;
               break;
             } catch (error) {
-              console.error(`Attempt ${attempt + 1} failed for page group ID: ${PageGrpID}`, error);
+              logger.error(`Attempt ${attempt + 1} failed for page group ID: ${PageGrpID}`, error);
+              console.log(`Attempt ${attempt + 1} failed for page group ID: ${PageGrpID}`, error);
               if (attempt === MAX_RETRIES - 1) {
-                console.error(`Failed to process page group ID: ${PageGrpID} after ${MAX_RETRIES} attempts. Possible Causes: Incorrect Account ID or Page group ID not found.`);
+                logger.error(`Failed to process page group ID: ${PageGrpID} after ${MAX_RETRIES} attempts. Possible Causes: Incorrect Account ID or Page group ID not found.`);
                 errorEncountered = true; // Set the flag to true if the error is encountered
                 failedGroups.push({ PageGrpID, reason: error.message });
               }
             }
           }
           if (success) {
+            logger.info(`Processed Page group ID: ${PageGrpID} with new name: ${newName}`);
             console.log(`Processed Page group ID: ${PageGrpID} with new name: ${newName}`);
             successfulGroups.push({ PageGrpID, newName });
           }
@@ -99,13 +110,17 @@ module.exports = async (req, res) => {
           successfulGroups: successfulGroups
         };
 
+        const completionMessage = `Page group rename process completed.`;
+        logger.info(completionMessage);
+        console.log(completionMessage); // Log to console
+
         if (!errorEncountered && failedGroups.length === 0) {
           res.json(responseMessage);
         } else {
           res.status(200).json(responseMessage);
         }
       } catch (error) {
-        console.error('An error occurred:', error);
+        logger.error('An error occurred:', error);
         res.status(500).send('An error occurred while processing the request.');
       } finally {
         await browser.close();

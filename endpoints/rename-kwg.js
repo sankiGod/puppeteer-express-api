@@ -138,7 +138,7 @@ module.exports = async (req, res) => {
               }
 
               if (attempt === MAX_RETRIES - 1) {
-                const message = `Failed to process keyword group ID: ${kgId} after ${MAX_RETRIES} attempts. Possible Cause: Wrong Account ID or Incorrect Hierarchy given.`;
+                const message = `Failed to process keyword group ID: ${kgId} after ${MAX_RETRIES} attempts. Possible Cause: Wrong Account ID, Keyword Group ID or Incorrect Hierarchy given.`;
                 logger.error(message);
                 console.log(message);
                 failedGroups.push({ kgId, reason: message, errorCode: getErrorCode(message) });

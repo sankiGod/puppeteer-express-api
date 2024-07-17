@@ -131,3 +131,6 @@ dist
 
 #uploads
 uploads/
+
+#logs
+logs/

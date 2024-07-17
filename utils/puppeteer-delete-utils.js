@@ -1,3 +1,5 @@
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 const navigateAndDeleteKWG = async (page, url, isHierarchyEnabled, kgId, kgName, logger) => {
   try {
     logger.info(`Navigating to URL for keyword group ID: ${kgId}`);
@@ -7,17 +9,22 @@ const navigateAndDeleteKWG = async (page, url, isHierarchyEnabled, kgId, kgName,
     logger.error(`Failed to navigate to the correct page for keyword group ID: ${kgId}`, error);
     throw new Error(`Failed to navigate to the correct page for keyword group ID: ${kgId}`);
   }
+  const currentUrl = decodeURIComponent(page.url());
+  if (currentUrl !== url) {
+    logger.error(`URL mismatch for keyword group ID: ${kgId}. Expected: ${url}, but got: ${currentUrl}`);
+    throw new Error(`Failed to navigate to the correct page for keyword group ID: ${kgId}`);
+  }
 
   // Delete keyword group
   const deleteButtonSelector = isHierarchyEnabled ? '.kg-delete-button' : '.delete_button';
   const confirmButtonSelector = isHierarchyEnabled ? '#delete_kg_confirm' : '.delete_group_button';
-  
+
   try {
     logger.info(`Waiting for selector: ${deleteButtonSelector}`);
     await page.waitForSelector(deleteButtonSelector, { timeout: 10000 });
     logger.info(`Selector ${deleteButtonSelector} found. Clicking on delete button.`);
     await page.click(deleteButtonSelector);
-    await page.waitForNavigation();
+    await delay(3000);
 
     if (isHierarchyEnabled) {
       // Wait for the confirmation dialog
@@ -67,12 +74,12 @@ const navigateAndDeleteKWG = async (page, url, isHierarchyEnabled, kgId, kgName,
     throw error;
   }
 
-  // Wait for navigation to check if deletion was successful
+  // Wait for a delay to check if deletion was successful
   try {
-    logger.info(`Waiting for navigation after deletion for keyword group ID: ${kgId}`);
-    await page.waitForNavigation({ timeout: 10000 });
+    logger.info(`Waiting for delay after deletion for keyword group ID: ${kgId}`);
+    await delay(3000);
     const redirectedUrl = page.url();
-    if (!redirectedUrl.includes('/ui/platform-r/home/')) {
+    if (redirectedUrl.includes('/ui/platform-r/home/')) {
       logger.error(`Keyword group ID: ${kgId} deletion not successful.`);
       throw new Error(`Keyword group ID: ${kgId} deletion not successful.`);
     }
